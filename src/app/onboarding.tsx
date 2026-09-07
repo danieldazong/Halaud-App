@@ -51,7 +51,7 @@ export default function Onboarding() {
         <TouchableOpacity
           style={styles.ctaButton}
           activeOpacity={0.85}
-          onPress={() => router.replace("/")}
+          onPress={() => router.replace("/sign-up")}
         >
           <Text className="text-white text-base font-semibold text-center">
             Get Started
