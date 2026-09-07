@@ -1,0 +1,25 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+@import "nativewind/theme";
+
+/* ─── Design System Tokens ─────────────────────────────────────────────────── */
+/*  All brand colours are defined here as CSS custom properties so they can    */
+/*  be referenced by Tailwind utilities inside any component.                  */
+
+@theme {
+  --color-surface: #ffffff;
+  --color-surface-raised: #f4f7f9;
+  --color-ink: #14212b;
+  --color-ink-muted: #5a6b75;
+  --color-accent: #0e4c5a;
+  --color-highlight: #ffe9a8;
+
+  /* Dark-mode variants are handled via the `dark:` prefix with these tokens */
+  --color-surface-dark: #101619;
+  --color-surface-raised-dark: #1a2226;
+  --color-ink-dark: #e6edf1;
+  --color-ink-muted-dark: #9aaab3;
+  --color-accent-dark: #62c6d4;
+  --color-highlight-dark: #3d3213;
+}
