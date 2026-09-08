@@ -1,9 +1,6 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(npm ls *)",
-      "Bash(npm install *)"
-    ]
+    "allow": ["Bash(npm ls *)", "Bash(npm install *)"]
   },
   "enabledPlugins": {
     "expo@claude-plugins-official": true

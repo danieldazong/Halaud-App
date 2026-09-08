@@ -108,6 +108,7 @@ export default function SignIn() {
             <Text style={styles.inputLabel}>Email</Text>
             <TextInput
               style={styles.input}
+              className="appearance-none"
               value={email}
               onChangeText={setEmail}
               placeholder="alex@gmail.com"
@@ -189,12 +190,12 @@ const styles = StyleSheet.create({
 
   inputWrap: {
     borderWidth: 1,
-    borderColor: "#D1D9DF",
+    borderColor: "transparent",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(90, 107, 117, 0.06)",
   },
   inputError: {
     borderColor: "#E53E3E",
@@ -205,7 +206,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontWeight: "500",
   },
-  input: { fontSize: 16, color: "#14212B", padding: 0 },
+  input: {
+    fontSize: 16,
+    color: "#14212B",
+    padding: 0,
+    outlineWidth: 0,
+    outlineColor: "transparent",
+    borderWidth: 0,
+  },
 
   fieldError: {
     fontSize: 12,

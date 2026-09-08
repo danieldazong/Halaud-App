@@ -1,0 +1,96 @@
+import { Language } from "@/types/language";
+
+// PLACEHOLDER DATA. This list must be regenerated from live ElevenLabs
+// documentation before release — model coverage, voice IDs, and even which
+// languages are supported change over time. Do not ship these values as-is.
+export const languages: Language[] = [
+  {
+    code: "en-US",
+    englishName: "English (US)",
+    endonym: "English",
+    supportedModels: ["multilingual_v2", "flash_v2_5"],
+    defaultVoiceId: "voice-en-us-default",
+    flag: "en-US",
+  },
+  {
+    code: "es-ES",
+    englishName: "Spanish (Spain)",
+    endonym: "Español (España)",
+    supportedModels: ["multilingual_v2", "flash_v2_5"],
+    defaultVoiceId: "voice-es-es-default",
+    flag: "es-ES",
+  },
+  {
+    code: "fr-FR",
+    englishName: "French (France)",
+    endonym: "Français (France)",
+    supportedModels: ["multilingual_v2", "flash_v2_5"],
+    defaultVoiceId: "voice-fr-fr-default",
+    flag: "fr-FR",
+  },
+  {
+    code: "de-DE",
+    englishName: "German (Germany)",
+    endonym: "Deutsch (Deutschland)",
+    supportedModels: ["multilingual_v2", "flash_v2_5"],
+    defaultVoiceId: "voice-de-de-default",
+    flag: "de-DE",
+  },
+  {
+    code: "ja",
+    englishName: "Japanese",
+    endonym: "日本語",
+    supportedModels: ["multilingual_v2", "flash_v2_5"],
+    defaultVoiceId: "voice-ja-default",
+    flag: "ja",
+  },
+  {
+    code: "pt-BR",
+    englishName: "Portuguese (Brazil)",
+    endonym: "Português (Brasil)",
+    supportedModels: ["multilingual_v2", "flash_v2_5"],
+    defaultVoiceId: "voice-pt-br-default",
+    flag: "pt-BR",
+  },
+  {
+    code: "ar-EG",
+    englishName: "Arabic (Egypt)",
+    endonym: "العربية (مصر)",
+    supportedModels: ["multilingual_v2"],
+    defaultVoiceId: "voice-ar-eg-default",
+    flag: "ar-EG",
+    rtl: true,
+  },
+  {
+    code: "it-IT",
+    englishName: "Italian (Italy)",
+    endonym: "Italiano (Italia)",
+    supportedModels: ["multilingual_v2", "flash_v2_5"],
+    defaultVoiceId: "voice-it-it-default",
+    flag: "it-IT",
+  },
+  {
+    code: "ko",
+    englishName: "Korean",
+    endonym: "한국어",
+    supportedModels: ["multilingual_v2", "flash_v2_5"],
+    defaultVoiceId: "voice-ko-default",
+    flag: "ko",
+  },
+  {
+    code: "hi",
+    englishName: "Hindi",
+    endonym: "हिन्दी",
+    supportedModels: ["multilingual_v2"],
+    defaultVoiceId: "voice-hi-default",
+    flag: "hi",
+  },
+  {
+    code: "zh-CN",
+    englishName: "Chinese (Simplified)",
+    endonym: "中文（简体）",
+    supportedModels: ["multilingual_v2"],
+    defaultVoiceId: "voice-zh-cn-default",
+    flag: "zh-CN",
+  },
+];
