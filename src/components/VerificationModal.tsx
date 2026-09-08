@@ -1,54 +1,76 @@
-import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface VerificationModalProps {
   visible: boolean;
   email: string;
+  error?: string;
   onClose: () => void;
+  onVerify: (code: string) => Promise<void>;
+  onResend: () => Promise<void>;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function VerificationModal({
   visible,
   email,
+  error,
   onClose,
+  onVerify,
+  onResend,
 }: VerificationModalProps) {
-  const router = useRouter();
   const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
-  const hasNavigated = useRef(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const submitted = useRef(false);
 
   // Reset state whenever the modal opens
   useEffect(() => {
     if (visible) {
       setCode(["", "", "", "", "", ""]);
-      hasNavigated.current = false;
+      submitted.current = false;
     }
   }, [visible]);
 
-  // Auto-navigate when all 6 digits are filled
+  // Auto-submit when all 6 digits are filled
   useEffect(() => {
-    if (code.every((d) => d !== "") && !hasNavigated.current) {
-      hasNavigated.current = true;
-      setTimeout(() => {
-        onClose();
-        router.replace("/");
+    if (code.every((d) => d !== "") && !submitted.current) {
+      submitted.current = true;
+      const fullCode = code.join("");
+      setTimeout(async () => {
+        setIsVerifying(true);
+        try {
+          await onVerify(fullCode);
+        } finally {
+          setIsVerifying(false);
+          // If verification failed, allow resubmission
+          if (!submitted.current) submitted.current = false;
+        }
       }, 150); // brief pause so user sees the last digit
     }
-  }, [code, onClose, router]);
+  }, [code, onVerify]);
+
+  // When there's a new error coming in, reset submitted so user can retry
+  useEffect(() => {
+    if (error) {
+      submitted.current = false;
+      setCode(["", "", "", "", "", ""]);
+    }
+  }, [error]);
 
   // ── Numpad press handler ──────────────────────────────────────────────────
   function handleKey(key: string) {
+    if (isVerifying) return;
     setCode((prev) => {
       const next = [...prev];
       if (key === "⌫") {
@@ -59,6 +81,8 @@ export default function VerificationModal({
             break;
           }
         }
+        // Also reset the submitted flag so user can retry
+        submitted.current = false;
       } else {
         // Fill leftmost empty slot
         for (let i = 0; i < 6; i++) {
@@ -70,6 +94,17 @@ export default function VerificationModal({
       }
       return next;
     });
+  }
+
+  async function handleResend() {
+    setIsResending(true);
+    try {
+      await onResend();
+    } finally {
+      setIsResending(false);
+    }
+    setCode(["", "", "", "", "", ""]);
+    submitted.current = false;
   }
 
   const rows = [
@@ -105,7 +140,7 @@ export default function VerificationModal({
         keyboardVerticalOffset={0}
       >
         <View style={styles.sheet}>
-          {/* Header */}
+          {/* Handle */}
           <View style={styles.handle} />
 
           <Text style={styles.title}>Check your email</Text>
@@ -121,13 +156,22 @@ export default function VerificationModal({
                 key={i}
                 style={[styles.dotBox, digit !== "" && styles.dotBoxFilled]}
               >
-                <Text style={styles.dotText}>{digit !== "" ? digit : ""}</Text>
-                {digit === "" && <View style={styles.dot} />}
+                {digit !== "" ? (
+                  <Text style={styles.dotText}>{digit}</Text>
+                ) : (
+                  <View style={styles.dot} />
+                )}
               </View>
             ))}
           </View>
 
-          {/* Custom numpad — keeps modal above system keyboard */}
+          {/* Error message */}
+          {!!error && <Text style={styles.errorText}>{error}</Text>}
+
+          {/* Loading indicator while verifying */}
+          {isVerifying && <Text style={styles.verifyingText}>Verifying…</Text>}
+
+          {/* Custom numpad */}
           <View style={styles.numpad}>
             {rows.map((row, ri) => (
               <View key={ri} style={styles.numpadRow}>
@@ -140,9 +184,11 @@ export default function VerificationModal({
                       style={[
                         styles.numpadKey,
                         key === "⌫" && styles.numpadKeyBackspace,
+                        isVerifying && styles.numpadKeyDisabled,
                       ]}
                       activeOpacity={0.65}
                       onPress={() => handleKey(key)}
+                      disabled={isVerifying}
                     >
                       <Text
                         style={[
@@ -159,9 +205,22 @@ export default function VerificationModal({
             ))}
           </View>
 
-          <TouchableOpacity onPress={onClose} style={styles.cancelRow}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
+          {/* Resend + cancel row */}
+          <View style={styles.bottomRow}>
+            <TouchableOpacity
+              onPress={handleResend}
+              style={styles.resendBtn}
+              disabled={isResending || isVerifying}
+            >
+              <Text style={styles.resendText}>
+                {isResending ? "Sending…" : "Resend code"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -219,7 +278,7 @@ const styles = StyleSheet.create({
   dotsRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 36,
+    marginBottom: 12,
   },
   dotBox: {
     width: 44,
@@ -246,9 +305,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0E4C5A",
   },
+  errorText: {
+    fontSize: 13,
+    color: "#E53E3E",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  verifyingText: {
+    fontSize: 13,
+    color: "#5A6B75",
+    marginBottom: 12,
+  },
   numpad: {
     width: "100%",
     gap: 8,
+    marginTop: 12,
   },
   numpadRow: {
     flexDirection: "row",
@@ -270,6 +341,9 @@ const styles = StyleSheet.create({
   numpadKeyBackspace: {
     backgroundColor: "#EEF1F3",
   },
+  numpadKeyDisabled: {
+    opacity: 0.4,
+  },
   numpadKeyText: {
     fontSize: 22,
     fontWeight: "500",
@@ -279,8 +353,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#5A6B75",
   },
-  cancelRow: {
+  bottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
     marginTop: 20,
+  },
+  resendBtn: {
+    paddingVertical: 8,
+  },
+  resendText: {
+    fontSize: 14,
+    color: "#0E4C5A",
+    fontWeight: "600",
+  },
+  cancelBtn: {
     paddingVertical: 8,
   },
   cancelText: {

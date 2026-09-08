@@ -1,43 +1,90 @@
-import { useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useAuth, useUser } from "@clerk/expo";
+import { Redirect } from "expo-router";
+import {
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+
+// ─── Home / Library screen ───────────────────────────────────────────────────
+// This is the protected landing screen after sign-in.
+// Replace the body with the real DocumentList when the library feature is built.
 
 export default function Index() {
-  const router = useRouter();
+  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { user } = useUser();
+
+  if (!isLoaded) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#0E4C5A" />
+      </View>
+    );
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/onboarding" />;
+  }
 
   return (
-    <View className="flex-1 justify-center items-center bg-surface px-6">
-      <Text className="text-ink text-2xl font-bold text-center mb-2">
-        Halaud
+    <View style={styles.container}>
+      {/* Greeting */}
+      <Text style={styles.greeting}>
+        {user?.firstName ? `Hey, ${user.firstName} 👋` : "You're signed in!"}
       </Text>
-      <Text className="text-ink-muted text-base text-center mb-10">
-        Your AI reading companion
-      </Text>
+      <Text style={styles.sub}>Your library will appear here soon.</Text>
 
+      {/* Sign Out */}
       <TouchableOpacity
-        style={styles.onboardingLink}
-        activeOpacity={0.8}
-        onPress={() => router.push("/onboarding")}
+        style={styles.signOutBtn}
+        activeOpacity={0.82}
+        onPress={() => signOut()}
       >
-        <Text className="text-white text-sm font-semibold">
-          View Onboarding
-        </Text>
+        <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  onboardingLink: {
-    backgroundColor: "#0E4C5A",
-    borderRadius: 50,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    alignItems: "center",
+  centered: {
+    flex: 1,
     justifyContent: "center",
-    shadowColor: "#0E4C5A",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  greeting: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#14212B",
+    textAlign: "center",
+  },
+  sub: {
+    fontSize: 15,
+    color: "#5A6B75",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  signOutBtn: {
+    backgroundColor: "#0E4C5A",
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    alignItems: "center",
+  },
+  signOutText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

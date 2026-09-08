@@ -1,5 +1,7 @@
+import SocialButton from "@/components/SocialButton";
 import VerificationModal from "@/components/VerificationModal";
 import { images } from "@/constants/images";
+import { useSignUp } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -17,15 +19,52 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SignUp() {
   const router = useRouter();
+  const { signUp, errors, fetchStatus } = useSignUp();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | undefined>();
 
-  function handleSignUp() {
-    if (!email.trim()) return;
+  const isSubmitting = fetchStatus === "fetching";
+
+  async function handleSignUp() {
+    if (!email.trim() || !password.trim()) return;
+    setVerifyError(undefined);
+
+    const { error } = await signUp.password({ emailAddress: email, password });
+    if (error) return; // errors.fields surfaces in the UI below
+
+    const { error: sendError } = await signUp.verifications.sendEmailCode();
+    if (sendError) return;
+
     setModalVisible(true);
   }
+
+  async function handleVerify(code: string) {
+    setVerifyError(undefined);
+    const { error } = await signUp.verifications.verifyEmailCode({ code });
+    if (error) {
+      setVerifyError("That code didn't match. Try again.");
+      return;
+    }
+    await signUp.finalize({
+      navigate: ({ session, decorateUrl }) => {
+        if (session?.currentTask) return; // handle session tasks if any
+        setModalVisible(false);
+        router.replace("/");
+      },
+    });
+  }
+
+  async function handleResend() {
+    setVerifyError(undefined);
+    await signUp.verifications.sendEmailCode();
+  }
+
+  const emailError = errors?.fields?.emailAddress?.message;
+  const passwordError = errors?.fields?.password?.message;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -41,7 +80,9 @@ export default function SignUp() {
           {/* ── Back arrow ───────────────────────────────────── */}
           <TouchableOpacity
             style={styles.backBtn}
-            onPress={() => router.back()}
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/onboarding")
+            }
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Text style={styles.backArrow}>‹</Text>
@@ -65,7 +106,7 @@ export default function SignUp() {
           </View>
 
           {/* ── Email field ──────────────────────────────────── */}
-          <View style={styles.inputWrap}>
+          <View style={[styles.inputWrap, !!emailError && styles.inputError]}>
             <Text style={styles.inputLabel}>Email</Text>
             <TextInput
               style={styles.input}
@@ -77,11 +118,19 @@ export default function SignUp() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="next"
+              editable={!isSubmitting}
             />
           </View>
+          {!!emailError && <Text style={styles.fieldError}>{emailError}</Text>}
 
           {/* ── Password field ───────────────────────────────── */}
-          <View style={[styles.inputWrap, { marginTop: 12 }]}>
+          <View
+            style={[
+              styles.inputWrap,
+              { marginTop: 12 },
+              !!passwordError && styles.inputError,
+            ]}
+          >
             <Text style={styles.inputLabel}>Password</Text>
             <View style={styles.passwordRow}>
               <TextInput
@@ -93,6 +142,7 @@ export default function SignUp() {
                 secureTextEntry={!showPassword}
                 returnKeyType="done"
                 onSubmitEditing={handleSignUp}
+                editable={!isSubmitting}
               />
               <TouchableOpacity
                 style={styles.eyeBtn}
@@ -103,14 +153,23 @@ export default function SignUp() {
               </TouchableOpacity>
             </View>
           </View>
+          {!!passwordError && (
+            <Text style={styles.fieldError}>{passwordError}</Text>
+          )}
 
           {/* ── Sign Up button ───────────────────────────────── */}
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={[
+              styles.primaryBtn,
+              isSubmitting && styles.primaryBtnDisabled,
+            ]}
             activeOpacity={0.85}
             onPress={handleSignUp}
+            disabled={isSubmitting}
           >
-            <Text style={styles.primaryBtnText}>Sign Up</Text>
+            <Text style={styles.primaryBtnText}>
+              {isSubmitting ? "Creating account…" : "Sign Up"}
+            </Text>
           </TouchableOpacity>
 
           {/* ── Divider ──────────────────────────────────────── */}
@@ -121,9 +180,8 @@ export default function SignUp() {
           </View>
 
           {/* ── Social buttons ───────────────────────────────── */}
-          <SocialButton label="Continue with Google" />
-          <SocialButton label="Continue with Facebook" isFacebook />
-          <SocialButton label="Continue with Apple" isApple />
+          <SocialButton provider="oauth_google" label="Continue with Google" />
+          <SocialButton provider="oauth_apple" label="Continue with Apple" />
 
           {/* ── Log in link ──────────────────────────────────── */}
           <View style={styles.footerRow}>
@@ -132,6 +190,9 @@ export default function SignUp() {
               <Text style={styles.footerLink}>Log in</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Required for Clerk bot-protection on sign-up flows */}
+          <View nativeID="clerk-captcha" />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -139,40 +200,12 @@ export default function SignUp() {
       <VerificationModal
         visible={modalVisible}
         email={email}
+        error={verifyError}
         onClose={() => setModalVisible(false)}
+        onVerify={handleVerify}
+        onResend={handleResend}
       />
     </SafeAreaView>
-  );
-}
-
-// ── Inline social button (reused only on these two screens) ──────────────────
-function SocialButton({
-  label,
-  isFacebook,
-  isApple,
-}: {
-  label: string;
-  isFacebook?: boolean;
-  isApple?: boolean;
-}) {
-  return (
-    <TouchableOpacity style={styles.socialBtn} activeOpacity={0.75}>
-      {isApple ? (
-        <Text style={styles.appleIcon}></Text>
-      ) : isFacebook ? (
-        <View style={[styles.socialIconCircle, { backgroundColor: "#1877F2" }]}>
-          <Text style={styles.socialIconText}>f</Text>
-        </View>
-      ) : (
-        <View style={styles.googleIconWrap}>
-          {/* Google G — coloured segments approximated with a styled text */}
-          <Text style={[styles.googleG]}>
-            <Text style={{ color: "#EA4335" }}>G</Text>
-          </Text>
-        </View>
-      )}
-      <Text style={styles.socialBtnText}>{label}</Text>
-    </TouchableOpacity>
   );
 }
 
@@ -201,6 +234,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: "#FFFFFF",
   },
+  inputError: {
+    borderColor: "#E53E3E",
+  },
   inputLabel: {
     fontSize: 12,
     color: "#5A6B75",
@@ -213,12 +249,22 @@ const styles = StyleSheet.create({
   eyeBtn: { paddingLeft: 8 },
   eyeIcon: { fontSize: 18 },
 
+  fieldError: {
+    fontSize: 12,
+    color: "#E53E3E",
+    marginTop: 4,
+    marginLeft: 4,
+  },
+
   primaryBtn: {
     marginTop: 20,
     backgroundColor: "#0E4C5A",
     borderRadius: 12,
     paddingVertical: 17,
     alignItems: "center",
+  },
+  primaryBtnDisabled: {
+    opacity: 0.6,
   },
   primaryBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
 
@@ -229,45 +275,6 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: 1, backgroundColor: "#E2E8EC" },
   dividerText: { marginHorizontal: 12, fontSize: 13, color: "#5A6B75" },
-
-  socialBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#D1D9DF",
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    marginBottom: 10,
-    backgroundColor: "#FFFFFF",
-  },
-  socialBtnText: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#14212B",
-  },
-
-  googleIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8EC",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  googleG: { fontSize: 15, fontWeight: "700" },
-  socialIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  socialIconText: { color: "#FFFFFF", fontWeight: "700", fontSize: 15 },
-  appleIcon: { fontSize: 22, color: "#000000", lineHeight: 26 },
 
   footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 24 },
   footerText: { fontSize: 14, color: "#5A6B75" },
