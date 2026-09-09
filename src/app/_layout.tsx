@@ -5,6 +5,7 @@ import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect } from "react";
 import { ActivityIndicator, LogBox, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -12,6 +13,12 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 // Expected in development: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is a pk_test_
 // key until a production Clerk instance is wired up at deploy time.
 LogBox.ignoreLogs([/Clerk has been loaded with development keys/]);
+
+// Required by expo-web-browser so a pending OAuth session (opened via
+// WebBrowser.openAuthSessionAsync in useSSO) resolves in place and closes
+// the browser tab, instead of the redirect falling through to the OS and
+// relaunching the app fresh at /sso-callback with no session state.
+WebBrowser.maybeCompleteAuthSession();
 
 // Take explicit control of the splash screen instead of relying on the
 // plugin's implicit auto-hide, which can leave it stuck on iOS.
@@ -40,17 +47,21 @@ export default function RootLayout() {
 function RootNavigator() {
   const { isLoaded, isSignedIn } = useAuth();
   // Presence of a saved language is this session's "completed Language
-  // Selection" signal. In-memory only for now — resets on reload, which is
-  // expected until this store is backed by SQLite (see store/narration.ts).
+  // Selection" signal. Persisted via AsyncStorage (see store/narration.ts),
+  // which loads asynchronously — narrationHasHydrated must be true before
+  // trusting languageCode, or a returning user would flash the language
+  // picker on every cold start while AsyncStorage is still loading.
   const hasSelectedLanguage = useNarrationStore((state) => state.languageCode !== null);
+  const narrationHasHydrated = useNarrationStore((state) => state.hasHydrated);
+  const isReady = isLoaded && narrationHasHydrated;
 
   useEffect(() => {
-    if (isLoaded) {
+    if (isReady) {
       SplashScreen.hideAsync();
     }
-  }, [isLoaded]);
+  }, [isReady]);
 
-  if (!isLoaded) {
+  if (!isReady) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#0E4C5A" />

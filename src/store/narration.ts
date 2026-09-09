@@ -1,54 +1,58 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-// Persistence is behind this interface so the real expo-sqlite `preferences`
-// table can be dropped in later without touching any screen that reads from
-// the store.
-interface NarrationPreferences {
-  getLanguageCode: () => string | null;
-  getVoiceId: () => string | null;
-  getRecentLanguageCodes: () => string[];
-  save: (languageCode: string, voiceId: string) => void;
-}
-
-function createInMemoryPreferences(): NarrationPreferences {
-  let languageCode: string | null = null;
-  let voiceId: string | null = null;
-  let recentLanguageCodes: string[] = [];
-
-  return {
-    getLanguageCode: () => languageCode,
-    getVoiceId: () => voiceId,
-    getRecentLanguageCodes: () => recentLanguageCodes,
-    save: (nextLanguageCode, nextVoiceId) => {
-      languageCode = nextLanguageCode;
-      voiceId = nextVoiceId;
-      recentLanguageCodes = [
-        nextLanguageCode,
-        ...recentLanguageCodes.filter((code) => code !== nextLanguageCode),
-      ].slice(0, 3);
-    },
-  };
-}
-
-const preferences = createInMemoryPreferences();
-
+// Persisted via AsyncStorage (not expo-sqlite) so this store keeps working
+// in Expo Go — expo-sqlite is a native module Expo Go cannot load. Revisit
+// once the app moves to a development build full-time (see AGENTS.md's
+// Native Modules Rule).
 interface NarrationState {
   languageCode: string | null;
   voiceId: string | null;
   recentLanguageCodes: string[];
+  hasHydrated: boolean;
   setLanguageAndVoice: (languageCode: string, voiceId: string) => void;
+  clearLanguageAndVoice: () => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
 }
 
-export const useNarrationStore = create<NarrationState>((set) => ({
-  languageCode: preferences.getLanguageCode(),
-  voiceId: preferences.getVoiceId(),
-  recentLanguageCodes: preferences.getRecentLanguageCodes(),
-  setLanguageAndVoice: (languageCode, voiceId) => {
-    preferences.save(languageCode, voiceId);
-    set({
-      languageCode,
-      voiceId,
-      recentLanguageCodes: preferences.getRecentLanguageCodes(),
-    });
-  },
-}));
+export const useNarrationStore = create<NarrationState>()(
+  persist(
+    (set, get) => ({
+      languageCode: null,
+      voiceId: null,
+      recentLanguageCodes: [],
+      hasHydrated: false,
+      setLanguageAndVoice: (languageCode, voiceId) => {
+        const recentLanguageCodes = [
+          languageCode,
+          ...get().recentLanguageCodes.filter((code) => code !== languageCode),
+        ].slice(0, 3);
+        set({ languageCode, voiceId, recentLanguageCodes });
+      },
+      clearLanguageAndVoice: () => {
+        set({ languageCode: null, voiceId: null, recentLanguageCodes: [] });
+      },
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+    }),
+    {
+      name: "narration-storage",
+      storage: createJSONStorage(() => AsyncStorage),
+      // languageCode starts null until AsyncStorage finishes loading, so the
+      // root layout must wait for hasHydrated before deciding whether to
+      // gate a returning user into Language Selection — otherwise every
+      // cold start would flash the picker before snapping back to Library.
+      partialize: (state) => ({
+        languageCode: state.languageCode,
+        voiceId: state.voiceId,
+        recentLanguageCodes: state.recentLanguageCodes,
+      }),
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error("narration-storage: failed to rehydrate from AsyncStorage:", error);
+        }
+        state?.setHasHydrated(true);
+      },
+    },
+  ),
+);

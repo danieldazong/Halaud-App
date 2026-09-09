@@ -2,8 +2,10 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import DocumentRow from "@/components/DocumentRow";
 import EmptyState from "@/components/EmptyState";
 import { images } from "@/constants/images";
+import { languages } from "@/data/languages";
 import { pickDocument, UnsupportedFileTypeError } from "@/lib/importDocument";
 import { useLibraryStore } from "@/store/libraryStore";
+import { useNarrationStore } from "@/store/narration";
 import { useAuth } from "@clerk/expo";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -24,6 +26,11 @@ export default function Library() {
   const documents = useLibraryStore((state) => state.documents);
   const addDocument = useLibraryStore((state) => state.addDocument);
   const removeDocument = useLibraryStore((state) => state.removeDocument);
+  const clearLanguageAndVoice = useNarrationStore(
+    (state) => state.clearLanguageAndVoice,
+  );
+  const languageCode = useNarrationStore((state) => state.languageCode);
+  const selectedLanguage = languages.find((l) => l.code === languageCode);
 
   const [pendingDelete, setPendingDelete] = useState<{
     id: string;
@@ -72,7 +79,12 @@ export default function Library() {
 
       {/* ── Page title ───────────────────────────────────────── */}
       <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
-        <View className="w-8" />
+        <TouchableOpacity
+          onPress={() => router.navigate("/language")}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Feather name="chevron-left" size={26} color="#14212B" />
+        </TouchableOpacity>
         <Text className="text-ink text-2xl font-bold">Library</Text>
         <TouchableOpacity
           onPress={() => router.navigate("/settings")}
@@ -81,6 +93,43 @@ export default function Library() {
           <Feather name="settings" size={22} color="#14212B" />
         </TouchableOpacity>
       </View>
+
+      {/* ── Selected narration language ──────────────────────── */}
+      {selectedLanguage && (
+        <TouchableOpacity
+          onPress={() => router.navigate("/language")}
+          className="flex-row items-center justify-center gap-1.5 px-4 pb-3"
+          hitSlop={{ top: 4, bottom: 8, left: 12, right: 12 }}
+        >
+          {images.flags[selectedLanguage.flag] && (
+            <Image
+              source={images.flags[selectedLanguage.flag]}
+              style={{ width: 16, height: 16, borderRadius: 8 }}
+              resizeMode="contain"
+            />
+          )}
+          <Text className="text-inkMuted text-sm">
+            Narrating in {selectedLanguage.englishName}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* ── Dev-only: reset language selection state for testing the
+          Language Selection gate. Not part of the shipped design. ── */}
+      {__DEV__ && (
+        <TouchableOpacity
+          onPress={() => {
+            clearLanguageAndVoice();
+            router.replace("/language");
+          }}
+          className="mx-4 mb-2 items-center justify-center rounded-xl border border-dashed"
+          style={{ borderColor: "#E53E3E", paddingVertical: 8 }}
+        >
+          <Text className="text-xs font-semibold" style={{ color: "#E53E3E" }}>
+            DEV: Clear language selection
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* ── Document list ────────────────────────────────────── */}
       <FlatList

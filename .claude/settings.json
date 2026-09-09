@@ -1,6 +1,19 @@
 {
   "permissions": {
-    "allow": ["Bash(npm ls *)", "Bash(npm install *)"]
+    "allow": [
+      "Bash(npm ls *)",
+      "Bash(npm install *)",
+      "Bash(cat)",
+      "Bash(node preview-composite.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8081/status)",
+      "Bash(curl -s http://localhost:8081/status)",
+      "Bash(curl -s \"http://localhost:8081/_expo/loading\" -o /dev/null -w \"%{http_code}\\\\n\")",
+      "Bash(curl -s \"http://localhost:8081/_expo/loading?platform=web\" -o /tmp/loading_web.html -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(curl -s \"http://localhost:8081/index.bundle?platform=android&dev=true&hot=false\" -o /tmp/bundle_check.js -w \"HTTP %{http_code}, size %{size_download} bytes\\\\n\" --max-time 90)",
+      "Bash(npx expo *)",
+      "Bash(echo \"started with pid $!\")",
+      "Bash(curl -s \"http://localhost:8090/index.bundle?platform=android&dev=true&hot=false\" -o /tmp/bundle_check2.js -w \"HTTP %{http_code}, size %{size_download} bytes\\\\n\" --max-time 90)"
+    ]
   },
   "enabledPlugins": {
     "expo@claude-plugins-official": true

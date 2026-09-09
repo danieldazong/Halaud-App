@@ -246,6 +246,8 @@ Empty state — a language with no available voices: centered icon, heading "No 
 
 Flat, recency-ordered list. Each row shows title, file size, date, and a thin progress bar so a half-finished document is visibly resumable.
 
+Below the title, a small tappable line shows the current narration language — circular flag (16×16, from `images.flags`, same lookup pattern as `LanguageRow`) followed by "Narrating in {englishName}", in `inkMuted`. It only renders once a language is selected. Tapping it pushes `app/language.tsx`, same destination as the back chevron in the header — this is a second, low-friction entry point for changing language from Library, not a duplicate control to reconcile against.
+
 Floating "+" opens the document picker. Swipe to delete. Friendly empty state that invites the first import — never one that asks the user to log in.
 
 No folders, no tags, no sorting, no search, no camera tab.
@@ -295,6 +297,20 @@ npx expo run:android
 ```
 
 Never suggest a solution that assumes Expo Go. Never propose a JS-only PDF parser as a workaround to get back into Expo Go.
+
+---
+
+## OAuth / Clerk `useSSO` Setup Rule
+
+If Clerk's `useSSO()` (Google/Facebook/Apple sign-in) is used anywhere in the app, `WebBrowser.maybeCompleteAuthSession()` from `expo-web-browser` **must** be called once at module scope in the root layout (`src/app/_layout.tsx`), outside any component body, before any screen mounts:
+
+```tsx
+import * as WebBrowser from "expo-web-browser";
+
+WebBrowser.maybeCompleteAuthSession();
+```
+
+Without this call, the OAuth redirect cannot resolve back into the in-app browser session `useSSO()` opens via `WebBrowser.openAuthSessionAsync`. Instead, the redirect falls through to the OS, which relaunches the app fresh at the `sso-callback` route with no session state — the symptom is an infinite spinner on `sso-callback` after a successful Google/Facebook/Apple sign-in, with no error, that only clears when the user force-closes the app. This is easy to misdiagnose as a Clerk configuration or redirect-URL problem; it is not — it is this one missing call.
 
 ---
 
@@ -758,6 +774,10 @@ Use Zustand for:
 - app settings (default voice, default speed, reader font, theme, sleep timer)
 
 Keep stores small and single-purpose. Persist through the SQLite layer, not through the store's own serialization, so position survives a crash mid-playback. The selected language and voice must survive relaunch, and the first-run flow must not reappear once completed.
+
+**Temporary exception — narration state while previewing in Expo Go:** `expo-sqlite` is a native module and cannot run in Expo Go (see Native Modules Rule). While the app is being previewed in Expo Go rather than a development build, `store/narration.ts` persists `languageCode`, `voiceId`, and `recentLanguageCodes` via Zustand's `persist` middleware backed by `@react-native-async-storage/async-storage` instead — AsyncStorage is one of the few native modules Expo Go bundles internally, so it works there. Swap back to the SQLite-backed `preferences` table once the app moves to a development build full-time; `db/database.ts` already has a working SQLite implementation of this exact interface from an earlier pass, so this is a re-swap, not new work.
+
+Because AsyncStorage reads asynchronously (unlike a synchronous SQLite read at store-creation time), the store also exposes a `hasHydrated` flag, set true once `persist`'s `onRehydrateStorage` callback fires. `RootLayout`'s navigator must wait for `hasHydrated` (alongside Clerk's `isLoaded`) before evaluating the Language Selection gate — otherwise a returning user with a saved language briefly flashes the language picker on every cold start, before the persisted value has loaded.
 
 ---
 
